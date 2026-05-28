@@ -226,9 +226,9 @@
     // ========== 真实音乐播放器（使用本地MP3文件）==========
     // 三首古琴曲：请确保这三个文件与HTML文件放在同一目录下
     const tracks = [
-        { name: "《流水》· 卫仲乐", file: "卫仲乐-流水.mp3" },
-        { name: "《广陵散》· 管平湖", file: "广陵散.mp3" },
-        { name: "《梅花三弄》· 吴景略", file: "梅花三弄.mp3" }
+        { name: "《流水》· 卫仲乐", file: "./liushui.mp3" },
+        { name: "《广陵散》· 管平湖", file: "./guanglingsan.mp3" },
+        { name: "《梅花三弄》· 吴景略", file: "./meihuasannong.mp3" }
     ];
     let currentAudio = null;
     let currentTrackIdx = 0;
@@ -274,6 +274,9 @@
             }
             const track = tracks[index];
             currentAudio = new Audio(track.file);
+            currentAudio.preload = "auto";
+            currentAudio.setAttribute("playsinline", "true");
+            currentAudio.setAttribute("webkit-playsinline", "true");
             currentAudio.volume = parseFloat(volumeSlider.value);
             currentAudio.onerror = () => {
                 errorMsg.innerText = `无法加载《${track.name}》，请检查文件“${track.file}”是否存在。`;
