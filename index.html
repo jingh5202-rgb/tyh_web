@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>弦间·园境 | 金陵琴派 · 城市公园景观</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Serif+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        :root { --deep-green: #2C5A3A; --ancient-yellow: #C8A96E; --card-bg: #FFFDF7; }
+        body { background: #EBE2D1; font-family: 'Noto Serif SC', 'Georgia', serif; height: 100vh; overflow: hidden; }
+        /* 开屏 */
+        .splash-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #FDF3E2; z-index: 2000; display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.5s; opacity: 1; pointer-events: none;
+        }
+        .splash-screen.hide { opacity: 0; visibility: hidden; }
+        .splash-content { text-align: center; background: rgba(255,248,235,0.7); backdrop-filter: blur(8px); border-radius: 70px; padding: 20px 30px; }
+        .splash-logo { width: 90px; height: 90px; background: rgba(255,240,210,0.7); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; border: 2px solid var(--ancient-yellow); }
+        .splash-logo svg { width: 50px; height: 50px; }
+        .splash-text { font-family: 'ZCOOL KuaiLe', cursive; font-size: 1.8rem; background: linear-gradient(135deg, #D4AF5A, #B88B3A); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        /* APP主体 */
+        .app-container { display: flex; flex-direction: column; height: 100%; max-width: 550px; margin: 0 auto; background: #FCF9F0; box-shadow: 0 0 20px rgba(0,0,0,0.1); overflow: hidden; position: relative; }
+        .app-header { background: linear-gradient(115deg, #2C5A3A, #1F4230); padding: 0.8rem; text-align: center; border-bottom-left-radius: 40px; border-bottom-right-radius: 40px; }
+        .brand-name { font-family: 'ZCOOL KuaiLe', cursive; font-size: 1.6rem; background: linear-gradient(145deg, #F9E2A0, #DDB46C); -webkit-background-clip: text; background-clip: text; color: transparent; display: inline-flex; align-items: center; gap: 6px; }
+        .brand-name i { color: #F3D28C; font-size: 1.3rem; }
+        .main-content { flex: 1; overflow-y: auto; position: relative; background: #FCF9F0; }
+        .page, .deep-layer { padding: 0.8rem; }
+        .page { display: block; }
+        .deep-layer { position: absolute; top: 0; left: 0; width: 100%; min-height: 100%; background: #FCF9F0; z-index: 10; }
+        .hidden { display: none; }
+        .layer-header { display: flex; align-items: center; gap: 12px; padding: 0.5rem 0 0.8rem; border-bottom: 1px solid #EADBBE; margin-bottom: 1rem; }
+        .layer-back { background: none; border: none; font-size: 1rem; color: var(--deep-green); cursor: pointer; }
+        .card { background: var(--card-bg); border-radius: 24px; margin-bottom: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-left: 5px solid var(--ancient-yellow); padding: 0.8rem; }
+        .card-title { font-size: 1rem; font-weight: 600; color: var(--deep-green); border-left: 3px solid var(--ancient-yellow); padding-left: 10px; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 6px; }
+        .knowledge-item, .activity-item { display: flex; align-items: center; gap: 10px; background: #FEFAF2; border-radius: 20px; padding: 8px 12px; margin-bottom: 8px; border: 1px solid #EDE0CA; cursor: pointer; }
+        .icon-circle { width: 36px; height: 36px; background: #EADFC9; border-radius: 30px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #5e4a2e; }
+        .inset-quote { background: #F5F0E3; border-radius: 20px; padding: 0.5rem; font-size: 0.75rem; }
+        .btn { background: var(--deep-green); border: none; padding: 5px 14px; border-radius: 40px; color: white; cursor: pointer; font-family: inherit; font-size: 0.8rem; }
+        .btn-yellow { background: var(--ancient-yellow); color: #2c462e; }
+        #map-container { width: 100%; height: 220px; border-radius: 20px; margin: 0.5rem 0; border: 2px solid #EADBBE; background: #F3EFE2; }
+        .my-menu-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #efe0ce; cursor: pointer; }
+        .bottom-nav { background: #FDF9EF; display: flex; justify-content: space-around; padding: 0.3rem 0.4rem; border-top: 1px solid #EADBBE; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 0.6rem; color: #7B6B4C; background: none; border: none; cursor: pointer; padding: 4px; border-radius: 30px; }
+        .nav-item i { font-size: 1.2rem; }
+        .nav-item.active i, .nav-item.active span { color: var(--deep-green); font-weight: 600; }
+        .modal { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 2000; visibility: hidden; opacity: 0; transition: 0.2s; }
+        .modal.show { visibility: visible; opacity: 1; }
+        .modal-content { background: #FFFBF2; max-width: 260px; width: 80%; border-radius: 40px; padding: 1.2rem; border-top: 6px solid var(--ancient-yellow); text-align: center; }
+        footer { font-size: 0.5rem; text-align: center; padding: 4px; color: #b6a17c; }
+        .leaflet-control-attribution { display: none; }
+        .comment-item { background: #FEF9EF; border-radius: 18px; padding: 6px 10px; margin-bottom: 6px; border: 1px solid #eadfc9; }
+        .like-btn { background: none; border: none; color: #ab8b54; }
+        .like-btn.liked { color: #e05a5a; }
+        .carousel-container { display: flex; overflow-x: auto; gap: 12px; scroll-snap-type: x mandatory; padding-bottom: 6px; }
+        .carousel-slide { flex: 0 0 80%; scroll-snap-align: start; background: #FCF6E8; border-radius: 24px; overflow: hidden; }
+        .carousel-slide svg { width: 100%; height: 120px; background: #F7EFDF; display: block; }
+        .carousel-caption { text-align: center; font-size: 0.7rem; padding: 6px; background: #FFFCF5; }
+        /* 真实音乐播放器样式 */
+        .real-player {
+            background: #FEF6EA;
+            border-radius: 24px;
+            padding: 10px;
+            margin-top: 6px;
+        }
+        .track-buttons {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .track-btn {
+            background: var(--deep-green);
+            color: white;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+        .player-control-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        .play-pause-btn {
+            background: var(--deep-green);
+            color: white;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .progress-container {
+            flex: 2;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .progress-bar {
+            flex: 1;
+            height: 4px;
+            background: #EADBBE;
+            border-radius: 4px;
+            cursor: pointer;
+            position: relative;
+        }
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: var(--ancient-yellow);
+            border-radius: 4px;
+        }
+        .time-text {
+            font-size: 0.65rem;
+            color: #7A5A30;
+            min-width: 70px;
+        }
+        .volume-slider {
+            width: 70px;
+            height: 3px;
+            -webkit-appearance: none;
+            background: #EADBBE;
+            border-radius: 3px;
+        }
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 10px;
+            height: 10px;
+            background: var(--ancient-yellow);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .error-msg {
+            font-size: 0.6rem;
+            color: #b33;
+            text-align: center;
+            margin-top: 6px;
+        }
+    </style>
+</head>
+<body>
+<div id="splash" class="splash-screen">
+    <div class="splash-content">
+        <div class="splash-logo"><svg viewBox="0 0 100 100"><path d="M32,68 L50,24 L68,68 L57,68 L50,52 L43,68Z" fill="#E8D6A8" stroke="#C8A96E"/><circle cx="50" cy="46" r="7" fill="#DCC48E"/><path d="M22,77 L78,77 L72,83 L28,83Z" fill="#AB8E54"/><path d="M45,46 L55,46" stroke="#7A5A30"/></svg></div>
+        <div class="splash-text">弦间·园境</div>
+        <div style="color:#5E6B3C;">金陵琴派 · 城市公园景观</div>
+    </div>
+</div>
+
+<div class="app-container">
+    <div class="app-header">
+        <div class="brand-name"><i class="fas fa-fan"></i> 弦间·园境 <i class="fas fa-tree"></i></div>
+        <p style="font-size:0.55rem; color:#E9DAB0;">金陵琴派 · 太古遗音</p>
+    </div>
+    <div class="main-content" id="main-content">
+        <div id="home-page" class="page"></div>
+        <div id="map-page" class="page hidden"></div>
+        <div id="interact-page" class="page hidden"></div>
+        <div id="activity-page" class="page hidden"></div>
+        <div id="profile-page" class="page hidden"></div>
+    </div>
+    <div class="bottom-nav">
+        <button class="nav-item active" data-page="home"><i class="fas fa-home"></i><span>首页</span></button>
+        <button class="nav-item" data-page="map"><i class="fas fa-map"></i><span>导览</span></button>
+        <button class="nav-item" data-page="interact"><i class="fas fa-comment-dots"></i><span>琴话</span></button>
+        <button class="nav-item" data-page="activity"><i class="fas fa-calendar-week"></i><span>活动</span></button>
+        <button class="nav-item" data-page="profile"><i class="fas fa-user"></i><span>我的</span></button>
+    </div>
+    <footer>弦间·园境 | 金陵琴派 · 山水清音</footer>
+</div>
+
+<div id="global-modal" class="modal"><div class="modal-content"><h3 id="modal-title"></h3><p id="modal-body" style="margin:8px 0;"></p><button class="close-modal" onclick="closeModal()">静听·收韵</button></div></div>
+
+<script>
+(function(){
+    // ========== 轻量级层叠导航 ==========
+    let layerStack = [];
+    const mainEl = document.getElementById('main-content');
+    function pushLayer(title, renderFn) {
+        document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+        const layer = document.createElement('div');
+        layer.className = 'deep-layer';
+        layer.innerHTML = `<div class="layer-header"><button class="layer-back"><i class="fas fa-arrow-left"></i> 返回</button><h3 style="color:var(--deep-green);">${escapeHtml(title)}</h3></div><div class="layer-content"></div>`;
+        const content = layer.querySelector('.layer-content');
+        renderFn(content);
+        mainEl.appendChild(layer);
+        layerStack.push(layer);
+        layer.querySelector('.layer-back').onclick = () => popLayer();
+    }
+    function popLayer() {
+        if (!layerStack.length) return;
+        const last = layerStack.pop();
+        last.remove();
+        if (!layerStack.length) {
+            const activeNav = document.querySelector('.nav-item.active');
+            showPage(activeNav ? activeNav.dataset.page : 'home');
+        }
+    }
+    function showPage(pageId) {
+        document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+        document.getElementById(`${pageId}-page`).classList.remove('hidden');
+        document.querySelectorAll('.nav-item').forEach(btn => {
+            if (btn.dataset.page === pageId) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+        while (layerStack.length) layerStack.pop().remove();
+    }
+    function showModal(title, body) {
+        document.getElementById('modal-title').innerHTML = title;
+        document.getElementById('modal-body').innerHTML = body;
+        document.getElementById('global-modal').classList.add('show');
+    }
+    window.closeModal = () => document.getElementById('global-modal').classList.remove('show');
+    function escapeHtml(str) { return String(str).replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
+
+    // ========== 真实音乐播放器（使用本地MP3文件）==========
+    // 三首古琴曲：请确保这三个文件与HTML文件放在同一目录下
+    const tracks = [
+        { name: "《流水》· 卫仲乐", file: "卫仲乐-流水.mp3" },
+        { name: "《广陵散》· 管平湖", file: "广陵散.mp3" },
+        { name: "《梅花三弄》· 吴景略", file: "梅花三弄.mp3" }
+    ];
+    let currentAudio = null;
+    let currentTrackIdx = 0;
+    let isPlaying = false;
+
+    function initRealMusicPlayer(container) {
+        container.innerHTML = `
+            <div class="real-player">
+                <div class="track-buttons">
+                    ${tracks.map((t, idx) => `<button class="track-btn" data-track="${idx}">${t.name}</button>`).join('')}
+                </div>
+                <div class="player-control-row">
+                    <button class="play-pause-btn" id="playPauseBtn"><i class="fas fa-play"></i></button>
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+                        <span class="time-text" id="timeDisplay">00:00 / 00:00</span>
+                    </div>
+                    <i class="fas fa-volume-down" style="color:#7A5A30;"></i>
+                    <input type="range" id="volumeSlider" class="volume-slider" min="0" max="1" step="0.01" value="0.6">
+                </div>
+                <div id="playerErrorMsg" class="error-msg"></div>
+                </div>`;
+
+        const playBtn = container.querySelector('#playPauseBtn');
+        const trackBtns = container.querySelectorAll('.track-btn');
+        const progressBar = container.querySelector('#progressBar');
+        const progressFill = container.querySelector('#progressFill');
+        const timeDisplay = container.querySelector('#timeDisplay');
+        const volumeSlider = container.querySelector('#volumeSlider');
+        const errorMsg = container.querySelector('#playerErrorMsg');
+
+        function formatTime(sec) {
+            if (isNaN(sec)) return "00:00";
+            let mins = Math.floor(sec / 60);
+            let s = Math.floor(sec % 60);
+            return `${mins.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+        }
+
+        function loadTrack(index) {
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+            const track = tracks[index];
+            currentAudio = new Audio(track.file);
+            currentAudio.volume = parseFloat(volumeSlider.value);
+            currentAudio.onerror = () => {
+                errorMsg.innerText = `无法加载《${track.name}》，请检查文件“${track.file}”是否存在。`;
+                playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                isPlaying = false;
+            };
+            currentAudio.oncanplay = () => {
+                errorMsg.innerText = '';
+                if (isPlaying) {
+                    currentAudio.play().catch(e => errorMsg.innerText = "播放失败，请手动点击播放");
+                }
+                updateTimeDisplay();
+            };
+            currentAudio.ontimeupdate = () => {
+                if (currentAudio.duration) {
+                    let percent = (currentAudio.currentTime / currentAudio.duration) * 100;
+                    progressFill.style.width = `${percent}%`;
+                    timeDisplay.innerText = `${formatTime(currentAudio.currentTime)} / ${formatTime(currentAudio.duration)}`;
+                }
+            };
+            currentAudio.onended = () => {
+                isPlaying = false;
+                playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                progressFill.style.width = '0%';
+                timeDisplay.innerText = `00:00 / ${formatTime(currentAudio.duration)}`;
+            };
+            currentAudio.onloadedmetadata = () => {
+                if (!isPlaying) timeDisplay.innerText = `00:00 / ${formatTime(currentAudio.duration)}`;
+            };
+            currentTrackIdx = index;
+        }
+
+        function updateTimeDisplay() {
+            if (currentAudio && currentAudio.duration && !isNaN(currentAudio.duration)) {
+                timeDisplay.innerText = `00:00 / ${formatTime(currentAudio.duration)}`;
+            }
+        }
+
+        function playPause() {
+            if (!currentAudio) {
+                loadTrack(currentTrackIdx);
+                setTimeout(() => {
+                    if (currentAudio) {
+                        currentAudio.play().catch(e => errorMsg.innerText = "播放失败，请检查文件");
+                        isPlaying = true;
+                        playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                    }
+                }, 100);
+            } else if (currentAudio.paused) {
+                currentAudio.play().catch(e => errorMsg.innerText = "播放失败");
+                isPlaying = true;
+                playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+            } else {
+                currentAudio.pause();
+                isPlaying = false;
+                playBtn.innerHTML = '<i class="fas fa-play"></i>';
+            }
+        }
+
+        playBtn.onclick = playPause;
+        volumeSlider.oninput = () => { if (currentAudio) currentAudio.volume = parseFloat(volumeSlider.value); };
+        progressBar.onclick = (e) => {
+            if (currentAudio && currentAudio.duration) {
+                let rect = progressBar.getBoundingClientRect();
+                let percent = (e.clientX - rect.left) / rect.width;
+                currentAudio.currentTime = percent * currentAudio.duration;
+            }
+        };
+        trackBtns.forEach((btn, idx) => {
+            btn.onclick = () => {
+                loadTrack(idx);
+                isPlaying = false;
+                playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                errorMsg.innerText = '';
+                if (currentAudio && currentAudio.src) {
+                    // 不自动播放，等待用户点击播放按钮
+                }
+            };
+        });
+        // 默认加载第一首但不自动播放
+        loadTrack(0);
+        isPlaying = false;
+        playBtn.innerHTML = '<i class="fas fa-play"></i>';
+    }
+
+    // ========== 首页轮播图 ==========
+    const carouselItems = [
+        { title: "琴台水榭·知音亭", svg: `<svg viewBox="0 0 300 150"><rect width="300" height="150" fill="#F3EAD8"/><path d="M40,110 L150,30 L260,110" fill="none" stroke="#8B5A2B" stroke-width="2.5"/><circle cx="150" cy="65" r="8" fill="#C8A96E"/><text x="125" y="135" fill="#5A3E1F" font-size="10">知音亭</text></svg>` },
+        { title: "文人雅集", svg: `<svg viewBox="0 0 300 150"><rect width="300" height="150" fill="#F0E5D2"/><path d="M50,100 L150,25 L250,100" stroke="#8B5A2B" fill="none" stroke-width="2"/><circle cx="150" cy="80" r="4" fill="#B78D4A"/><circle cx="120" cy="95" r="5" fill="#5A3E1F"/><text x="125" y="135" fill="#5A3E1F" font-size="10">雅集</text></svg>` },
+        { title: "松风琴亭", svg: `<svg viewBox="0 0 300 150"><rect width="300" height="150" fill="#EBE0CA"/><path d="M50,110 L150,40 L250,110" stroke="#8B5A2B" fill="none" stroke-width="2"/><circle cx="150" cy="85" r="4" fill="#C8A96E"/><text x="110" y="135" fill="#5A3E1F" font-size="10">松风琴亭</text></svg>` },
+        { title: "减字谱步道", svg: `<svg viewBox="0 0 300 150"><rect width="300" height="150" fill="#E8DDC8"/><path d="M50,75 L250,75" stroke="#7A5A30" stroke-width="2" stroke-dasharray="6 4"/><text x="80" y="55" fill="#5A3E1F" font-size="11">减字谱步道</text><text x="70" y="105" fill="#8B5A2B" font-size="9">𠂤 乚 木 勹</text></svg>` }
+    ];
+    // 深层知识内容（四层/五层）
+    const homeKnowledge = [
+        { title:"金陵琴派·历史", summary:"明清金陵，庄臻凤、杨抡", icon:"fas fa-history", deep: (c) => {
+            c.innerHTML = `<div class='card'><div class='card-title'>金陵琴派</div><p>形成于明代中后期，以南京为中心，琴风顿挫分明。代表琴家杨抡编撰《太古遗音》，庄臻凤创作《梧叶舞秋风》。2008年列入国家级非遗。</p><span class='detail-trigger' style='color:#B78D4A;text-decoration:underline;cursor:pointer;display:inline-block;margin-top:8px;'>📖 庄臻凤生平（第五层）</span></div>`;
+            c.querySelector('.detail-trigger')?.addEventListener('click', () => pushLayer("庄臻凤·琴学思想", c2 => c2.innerHTML = "<div class='card'><div class='card-title'>庄臻凤（约1624-1667）</div><p>清初金陵琴派代表人物，创作十四首琴曲，提倡“音与意合”。代表作《梧叶舞秋风》善用虚音表现秋意。</p></div>"));
+        } },
+        { title:"古琴形制·天地", summary:"三尺六寸五，十三徽", icon:"fas fa-yin-yang", deep: (c) => {
+            c.innerHTML = `<div class='card'><div class='card-title'>古琴形制</div><p>长三尺六寸五分（365日），十三徽（十二月加闰月），面圆底方（天圆地方）。</p><span class='detail-trigger' style='color:#B78D4A;text-decoration:underline;cursor:pointer;'>🔍 仲尼式与焦尾式详解（第五层）</span></div>`;
+            c.querySelector('.detail-trigger')?.addEventListener('click', () => pushLayer("古琴式样", c2 => c2.innerHTML = "<div class='card'><div class='card-title'>仲尼式</div><p>琴体修长，音色清越，金陵派常用。</p><div class='card-title' style='margin-top:8px;'>焦尾式</div><p>典故出自蔡邕，象征良材善用。园中焦尾亭取此意。</p></div>"));
+        } },
+        { title:"代表琴曲·秋江夜泊", summary:"顿挫跌宕，意境悠远", icon:"fas fa-water", deep: (c) => {
+            c.innerHTML = `<div class='card'><div class='card-title'>《秋江夜泊》赏析</div><p>据张继《枫桥夜泊》诗意创作，指法多用吟猱，描绘夜泊钟声、江枫渔火。</p><span class='detail-trigger' style='color:#B78D4A;text-decoration:underline;cursor:pointer;'>🎧 琴曲结构分析（第五层）</span></div>`;
+            c.querySelector('.detail-trigger')?.addEventListener('click', () => pushLayer("曲式结构", c2 => c2.innerHTML = "<div class='card'><div class='card-title'>曲式结构</div><p>全曲三段：泛音引子（钟声）、慢板主体（江夜咏叹）、尾声（余韵悠长）。金陵派多用“虚掩”“推出”等指法。</p></div>"));
+        } }
+    ];
+    function renderHome() {
+        const container = document.getElementById('home-page');
+        container.innerHTML = `
+            <div class="card"><div class="card-title"><i class="fas fa-images"></i> 园境·琴影</div><div class="carousel-container">${carouselItems.map(i=>`<div class="carousel-slide">${i.svg}<div class="carousel-caption">${i.title}</div></div>`).join('')}</div></div>
+            <div class="card"><div class="card-title"><i class="fas fa-graduation-cap"></i> 金陵琴学·精粹</div><div id="home-list"></div></div>
+            <div class="card"><div class="card-title"><i class="fas fa-music"></i> 今日琴音</div><div class="inset-quote"><i class="fas fa-leaf"></i> “清微淡远，中正平和” — 金陵琴派美学核心</div><button id="homeFact" class="btn-yellow btn" style="width:100%; margin-top:6px;"><i class="fas fa-dice-d6"></i> 拾取琴韵锦囊</button></div>
+            <div class="card"><div class="card-title"><i class="fas fa-headphones"></i> 弦间听音 · 古琴雅乐</div><div id="music-player"></div></div>`;
+        const listDiv = document.getElementById('home-list');
+        listDiv.innerHTML = homeKnowledge.map((k,idx)=>`<div class="knowledge-item" data-idx="${idx}"><div class="icon-circle"><i class="${k.icon}"></i></div><div><strong>${k.title}</strong><p>${k.summary}</p></div></div>`).join('');
+        listDiv.querySelectorAll('.knowledge-item').forEach(el=>{
+            el.addEventListener('click',()=>{
+                const idx = parseInt(el.dataset.idx);
+                pushLayer(homeKnowledge[idx].title, homeKnowledge[idx].deep);
+            });
+        });
+        document.getElementById('homeFact')?.addEventListener('click',()=>showModal("琴韵锦囊","金陵琴派右手取音刚健，左手吟猱细腻。"));
+        initRealMusicPlayer(document.getElementById('music-player'));
+    }
+
+    // ========== 地图导览 (Leaflet) ==========
+    let mapInst = null, mapInit = false, checkinSet = new Set();
+    function renderMap() {
+        const container = document.getElementById('map-page');
+        container.innerHTML = `<div class="card"><div class="card-title"><i class="fas fa-map-marked-alt"></i> 园境导览·琴景打卡</div><div id="map-container"></div><div id="checkin-counter" style="text-align:center; margin:6px 0;"><i class="fas fa-stamp"></i> 已探访琴境: <span id="checkinNum">0</span> / 5</div></div>
+                               <div class="card"><div class="card-title"><i class="fas fa-tree"></i> 琴境景点推荐</div><div id="spotsList"></div></div>`;
+        if(!mapInit){
+            mapInit = true;
+            mapInst = L.map('map-container').setView([32.0620, 118.7980], 16);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '' }).addTo(mapInst);
+            const pois = [
+                { coords:[32.0610,118.7965], name:"琴台水榭·知音亭", id:"qt", deep:"庄臻凤曾在此抚琴，水榭回廊皆可听音。" },
+                { coords:[32.0632,118.7992], name:"金陵琴学馆", id:"qxg", deep:"馆藏历代古琴二十余张，多媒体展示减字谱。" },
+                { coords:[32.0602,118.8005], name:"松风琴亭", id:"sfqt", deep:"亭外古松，风过如琴，适合静坐冥想。" },
+                { coords:[32.0645,118.7958], name:"流徽榭草坪", id:"lhx", deep:"定期举办露天雅集，可席地而坐听琴。" },
+                { coords:[32.0585,118.8000], name:"梧桐琴径", id:"wtqj", deep:"地面嵌有减字谱石刻，扫码可听对应琴音。" }
+            ];
+            const customIcon = L.divIcon({ html:'<i class="fas fa-fan" style="font-size:16px; color:#2C5A3A; background:#FFF6E5; border-radius:50%; padding:4px;"></i>', iconSize:[28,28] });
+            pois.forEach(p => {
+                const marker = L.marker(p.coords, {icon:customIcon}).addTo(mapInst);
+                marker.bindPopup(`<b>${p.name}</b><br><button class="poi-detail" data-deep="${p.deep}">📖 深层解读</button> <button class="poi-checkin" data-id="${p.id}">🎋 打卡</button>`);
+                marker.on('popupopen', () => {
+                    document.querySelector('.poi-detail')?.addEventListener('click', (e) => {
+                        const deep = e.target.dataset.deep;
+                        pushLayer(`${p.name}·深度文化`, c => c.innerHTML = `<div class="card"><div class="card-title">${p.name}</div><p>${deep}</p><span class="detail-trigger" style="color:#B78D4A;text-decoration:underline;cursor:pointer;">🏞️ 园林设计理念（第五层）</span></div>`);
+                        setTimeout(() => {
+                            const trigger = document.querySelector('.deep-layer .detail-trigger');
+                            if(trigger) trigger.onclick = () => pushLayer("园林设计理念", c2 => c2.innerHTML = "<div class='card'>琴境与自然山水结合，借景松风、流泉，营造“琴在山水间”的沉浸体验。</div>");
+                        }, 50);
+                    });
+                    document.querySelector('.poi-checkin')?.addEventListener('click', (e) => {
+                        const id = e.target.dataset.id;
+                        if (!checkinSet.has(id)) { checkinSet.add(id); document.getElementById('checkinNum').innerText = checkinSet.size; showModal("打卡成功",`✨ 探访「${p.name}」，琴韵长存。`); }
+                        else showModal("已打卡","您早已留下足迹。");
+                    });
+                });
+            });
+        } else {
+            setTimeout(() => mapInst?.invalidateSize(), 100);
+        }
+        const spots = ["琴台水榭·知音亭", "金陵琴学馆", "松风琴亭", "流徽榭草坪", "梧桐琴径"];
+        const spotsDiv = document.getElementById('spotsList');
+        spotsDiv.innerHTML = spots.map(s => `<div class="knowledge-item" data-spot="${s}"><div class="icon-circle"><i class="fas fa-mountain"></i></div><div>${s}</div></div>`).join('');
+        spotsDiv.querySelectorAll('.knowledge-item').forEach(el => el.addEventListener('click', () => showModal(el.dataset.spot, "点击地图标记可查看深度文化解读。")));
+    }
+
+    // ========== 琴话互动 ==========
+    let commentsList = [];
+    const STORAGE_KEY = 'xianjian_comments';
+    function loadComments() {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        commentsList = stored ? JSON.parse(stored) : [{ name:"溪山琴客", text:"松风入弦，知音难觅", time:"乙巳年五月", likes:2, likedByMe:false }];
+        saveComments(); renderComments();
+    }
+    function saveComments() { localStorage.setItem(STORAGE_KEY, JSON.stringify(commentsList)); }
+    function renderComments() {
+        const area = document.getElementById('comments-area'); if(!area) return;
+        area.innerHTML = commentsList.slice().reverse().map((c,i) => `<div class="comment-item"><div style="display:flex;justify-content:space-between;"><span><i class="fas fa-user-pen"></i> ${c.name}</span><button class="like-btn ${c.likedByMe?'liked':''}" data-idx="${commentsList.length-1-i}"><i class="fas fa-heart"></i> ${c.likes}</button></div><div>${c.text}</div><div style="font-size:0.6rem;">${c.time}</div></div>`).join('');
+        document.querySelectorAll('.like-btn').forEach(btn => {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.idx);
+                if(commentsList[idx]) {
+                    commentsList[idx].likedByMe = !commentsList[idx].likedByMe;
+                    commentsList[idx].likes += commentsList[idx].likedByMe ? 1 : -1;
+                    saveComments(); renderComments();
+                }
+            };
+        });
+    }
+    function addComment(name, text) {
+        if (!text.trim()) return false;
+        commentsList.unshift({ name: name.trim()||"琴友", text: text.trim(), time: new Date().toLocaleDateString(), likes:0, likedByMe:false });
+        saveComments(); renderComments(); return true;
+    }
+    function renderInteract() {
+        const container = document.getElementById('interact-page');
+        container.innerHTML = `<div class="card"><div class="card-title"><i class="fas fa-comments"></i> 园境回声</div><div id="comments-area" style="max-height:200px;overflow-y:auto;"></div><input id="commentName" placeholder="雅号 / 知音" style="width:100%;padding:6px;margin:6px 0;border-radius:40px;border:1px solid #ddd2bc;"><textarea id="commentText" rows="2" placeholder="分享园境琴思..." style="border-radius:20px;border:1px solid #ddd2bc;padding:6px;"></textarea><button id="submitComment" class="btn"><i class="fas fa-feather-alt"></i> 留弦语</button></div>
+            <div class="card"><div class="card-title"><i class="fas fa-guitar"></i> 指间弦境</div><div style="display:flex; gap:5px; flex-wrap:wrap; margin:8px 0;" id="qinStrings">${["一弦·土","二弦·金","三弦·木","四弦·火","五弦·水","六弦·文","七弦·武"].map(s => `<div class="btn-yellow" style="flex:1;text-align:center;padding:5px;border-radius:30px;">${s}</div>`).join('')}</div><div id="stringFeedback" class="inset-quote"><i class="fas fa-hand-peace"></i> 轻抚琴弦，聆听古韵心音……</div><button id="poemBtn" class="btn-yellow btn" style="width:100%;margin-top:6px;"><i class="fas fa-leaf"></i> 今日琴境·诗签</button></div>`;
+        loadComments();
+        document.getElementById('submitComment').onclick = () => {
+            const name = document.getElementById('commentName').value;
+            const text = document.getElementById('commentText').value;
+            if(addComment(name,text)){ document.getElementById('commentName').value=''; document.getElementById('commentText').value=''; }
+            else alert("请写入琴语");
+        };
+        const meanings = { "一弦·土":"宫音浑厚，大地之德","二弦·金":"商音清脆，秋意肃杀","三弦·木":"角音生机，春和景明","四弦·火":"徵音热烈，夏日流火","五弦·水":"羽音清冷，冬雪皑皑","六弦·文":"文弦柔和，文人风骨","七弦·武":"武弦刚健，侠气激昂"};
+        document.querySelectorAll('#qinStrings .btn-yellow').forEach((s, idx) => {
+            const keys = Object.keys(meanings);
+            s.onclick = () => {
+                const msg = meanings[keys[idx]];
+                document.getElementById('stringFeedback').innerHTML = `<i class="fas fa-hand-peace"></i> ${msg}`;
+                showModal("弦音·"+keys[idx], msg);
+            };
+        });
+        document.getElementById('poemBtn').onclick = () => showModal("今日诗签·园境琴心", "弦动松风起，园深鸟自啼。金陵旧琴韵，今入画中栖。");
+    }
+
+    // ========== 活动页面 ==========
+    const activities = [
+        { icon:"fas fa-hands", name:"古琴体验", desc:"零基础抚琴，专业指导", deep: c => { c.innerHTML = `<div class="card"><div class="card-title">预约古琴体验</div><p>选择时段：</p><button class="btn" id="time1">10:00-11:00</button> <button class="btn" id="time2">14:00-15:00</button></div>`; 
+            c.querySelector('#time1')?.addEventListener('click',()=>showModal("预约成功","已预约10:00-11:00古琴课，请至琴馆集合。"));
+            c.querySelector('#time2')?.addEventListener('click',()=>showModal("预约成功","已预约14:00-15:00古琴课。")); } },
+        { icon:"fas fa-book-open", name:"减字谱教学", desc:"解密金陵琴谱", deep: c => { 
+            const symbols = [{ name:"勾", sym:"𠂤", exp:"右手中指向内弹" },{ name:"挑", sym:"乚", exp:"右手食指向外弹" },{ name:"抹", sym:"木", exp:"右手食指向内弹" }];
+            c.innerHTML = `<div class="card"><div class="card-title">减字谱基础符号</div><div id="symbol-list"></div></div>`;
+            const list = c.querySelector('#symbol-list');
+            list.innerHTML = symbols.map(s => `<div class="knowledge-item" data-sym="${s.name}"><div class="icon-circle">${s.sym}</div><div><strong>${s.name}</strong><p>${s.exp}</p></div></div>`).join('');
+            list.querySelectorAll('.knowledge-item').forEach(el => {
+                el.addEventListener('click',() => pushLayer(`${el.dataset.sym}指法详解`, c2 => c2.innerHTML = `<div class="card"><div class="card-title">${el.dataset.sym}指法</div><p>${symbols.find(s=>s.name===el.dataset.sym).exp}。金陵琴派注重右手刚健、左手细腻。</p><span class="detail-trigger" style="color:#B78D4A;text-decoration:underline;">🎬 动态图示（第五层）</span></div>`));
+                setTimeout(() => {
+                    const trigger = document.querySelector('.deep-layer .detail-trigger');
+                    if(trigger) trigger.onclick = () => pushLayer("指法动态演示", c3 => c3.innerHTML = "<div class='card'><i class='fas fa-play-circle'></i> 动画示意：手指触弦角度45度，发力瞬时。</div>");
+                }, 100);
+            });
+        } },
+        { icon:"fas fa-map-pin", name:"琴徽打卡", desc:"收集十三徽章", deep: c => {
+            const points = ["第一徽·岳山", "第四徽·上准", "第七徽·中准", "第十徽·下准", "第十三徽·龙龈"];
+            c.innerHTML = `<div class="card"><div class="card-title">琴徽打卡点</div><div id="checkin-points"></div></div>`;
+            const ptsDiv = c.querySelector('#checkin-points');
+            ptsDiv.innerHTML = points.map(p => `<div class="knowledge-item" data-point="${p}"><div class="icon-circle"><i class="fas fa-map-marker-alt"></i></div><div>${p}</div><span style="margin-left:auto;">未打卡 →</span></div>`).join('');
+            ptsDiv.querySelectorAll('.knowledge-item').forEach(el => {
+                el.addEventListener('click',() => pushLayer(`${el.dataset.point} 详解`, c2 => c2.innerHTML = `<div class="card"><div class="card-title">${el.dataset.point}</div><p>此徽对应音位，园中设有石雕标识，扫描二维码可听对应音高。</p></div>`));
+            });
+        } }
+    ];
+    function renderActivity() {
+        const container = document.getElementById('activity-page');
+        container.innerHTML = `<div class="card"><div class="card-title"><i class="fas fa-calendar-alt"></i> 近期琴事 · 雅集体验</div><div id="act-list"></div></div>
+            <div class="card"><div class="card-title"><i class="fas fa-chalkboard-user"></i> 减字谱教学</div><div class="inset-quote">金陵琴派特有记谱法</div><button id="to-jianzipu" class="btn-yellow btn" style="width:100%"><i class="fas fa-book"></i> 进入减字谱课堂</button></div>
+            <div class="card"><div class="card-title"><i class="fas fa-qrcode"></i> 琴徽打卡</div><div class="knowledge-item" id="to-qinhui"><div class="icon-circle"><i class="fas fa-map-pin"></i></div><div>琴徽数字打卡 · 收集十三徽章</div></div></div>`;
+        const actDiv = document.getElementById('act-list');
+        actDiv.innerHTML = activities.map((a, idx) => `<div class="knowledge-item" data-idx="${idx}"><div class="icon-circle"><i class="${a.icon}"></i></div><div><strong>${a.name}</strong><p>${a.desc}</p></div></div>`).join('');
+        actDiv.querySelectorAll('.knowledge-item').forEach(el => {
+            const idx = parseInt(el.dataset.idx);
+            el.addEventListener('click', () => pushLayer(activities[idx].name, activities[idx].deep));
+        });
+        document.getElementById('to-jianzipu')?.addEventListener('click', () => pushLayer("减字谱教学", activities[1].deep));
+        document.getElementById('to-qinhui')?.addEventListener('click', () => pushLayer("琴徽打卡", activities[2].deep));
+    }
+
+    // ========== 我的页面 ==========
+    const favorites = [{ name:"《秋江夜泊》", desc:"金陵派经典", detail:"曲意苍茫，使用顿挫指法。" },{ name:"《梧叶舞秋风》", desc:"庄臻凤作曲", detail:"秋高气爽，梧叶飞舞之象。" }];
+    function renderProfile() {
+        const container = document.getElementById('profile-page');
+        container.innerHTML = `<div class="card"><div class="card-title"><i class="fas fa-user-circle"></i> 我的琴韵</div><div style="text-align:center; margin:8px 0;"><i class="fas fa-fan" style="font-size:2rem; color:var(--ancient-yellow);"></i><p>知音 · 弦间客</p></div>
+            <div class="my-menu-item" id="my-checkins"><span><i class="fas fa-map-marker-alt"></i> 我的打卡记录</span><i class="fas fa-chevron-right"></i></div>
+            <div class="my-menu-item" id="my-messages"><span><i class="fas fa-comment-dots"></i> 我的留言</span><i class="fas fa-chevron-right"></i></div>
+            <div class="my-menu-item" id="my-favorites"><span><i class="fas fa-heart"></i> 收藏琴曲</span><i class="fas fa-chevron-right"></i></div>
+            <div class="my-menu-item" id="my-activities"><span><i class="fas fa-ticket-alt"></i> 我的预约</span><i class="fas fa-chevron-right"></i></div></div>
+            <div class="card"><div class="card-title"><i class="fas fa-info-circle"></i> 关于弦间</div><p style="font-size:0.7rem;">金陵琴派 · 城市公园景观媒介转译APP | 版本 3.5</p></div>`;
+        document.getElementById('my-checkins')?.addEventListener('click', () => showModal("打卡记录", checkinSet.size ? `已打卡景点: ${Array.from(checkinSet).join(', ')}` : "暂未打卡，快去导览页探索琴境吧！"));
+        document.getElementById('my-messages')?.addEventListener('click', () => showModal("我的留言", commentsList.filter(c=>c.name === (document.getElementById('commentName')?.value || "琴友")).map(m=>m.text).join("\n") || "暂无留言"));
+        document.getElementById('my-favorites')?.addEventListener('click', () => pushLayer("收藏琴曲", c => {
+            c.innerHTML = `<div class="card"><div class="card-title">我的收藏</div><div id="fav-list"></div></div>`;
+            const favDiv = c.querySelector('#fav-list');
+            favDiv.innerHTML = favorites.map((fav, idx) => `<div class="knowledge-item" data-idx="${idx}"><div class="icon-circle"><i class="fas fa-heart"></i></div><div><strong>${fav.name}</strong><p>${fav.desc}</p></div></div>`).join('');
+            favDiv.querySelectorAll('.knowledge-item').forEach(el => {
+                const idx = parseInt(el.dataset.idx);
+                el.addEventListener('click', () => pushLayer(favorites[idx].name, c2 => c2.innerHTML = `<div class="card"><div class="card-title">${favorites[idx].name}</div><p>${favorites[idx].detail}</p><span class="detail-trigger" style="color:#B78D4A;text-decoration:underline;">🎼 琴谱节选（第五层）</span></div>`));
+                setTimeout(() => {
+                    const trigger = document.querySelector('.deep-layer .detail-trigger');
+                    if(trigger) trigger.onclick = () => pushLayer("琴谱节选", c3 => c3.innerHTML = "<div class='card'><pre>减字谱片段：𠂤 乚 木 勹 ...</pre><p>全谱可于琴学馆查阅。</p></div>");
+                }, 100);
+            });
+        }));
+        document.getElementById('my-activities')?.addEventListener('click', () => showModal("我的预约", "您暂无预约，可至活动页体验古琴课程。"));
+    }
+
+    // ========== 页面切换总控 ==========
+    function switchPage(pageId) {
+        showPage(pageId);
+        if(pageId === 'home') renderHome();
+        else if(pageId === 'map') renderMap();
+        else if(pageId === 'interact') renderInteract();
+        else if(pageId === 'activity') renderActivity();
+        else if(pageId === 'profile') renderProfile();
+    }
+    document.querySelectorAll('.nav-item').forEach(btn => btn.addEventListener('click', () => switchPage(btn.dataset.page)));
+    switchPage('home');
+    setTimeout(() => document.getElementById('splash')?.classList.add('hide'), 1500);
+})();
+</script>
+</body>
+</html>
